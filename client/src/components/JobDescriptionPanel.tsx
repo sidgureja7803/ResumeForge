@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { JobDescription } from '../types';
+import type { JobDescription } from '../types';
 
 interface JobDescriptionPanelProps {
   jobDescription: JobDescription | null;

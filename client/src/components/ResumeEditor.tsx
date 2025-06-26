@@ -1,7 +1,7 @@
 import React from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
-import { ResumeData } from '../types';
+import type { ResumeData } from '../types/index';
 
 interface ResumeEditorProps {
   resumeData: ResumeData;

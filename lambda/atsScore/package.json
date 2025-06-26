@@ -1,0 +1,31 @@
+{
+  "name": "resumeforge-ats-lambda",
+  "version": "1.0.0",
+  "description": "AWS Lambda function for ATS resume-job description matching and scoring",
+  "main": "atsScore.js",
+  "scripts": {
+    "test": "node test.js",
+    "test-local": "NODE_ENV=development node test.js",
+    "package": "zip -r ats-lambda.zip . -x test.js package-lock.json",
+    "deploy": "aws lambda update-function-code --function-name resumeforge-ats-score --zip-file fileb://ats-lambda.zip"
+  },
+  "keywords": [
+    "aws-lambda",
+    "ats",
+    "resume",
+    "job-matching",
+    "keyword-extraction",
+    "hackathon"
+  ],
+  "author": "ResumeForge Team",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/your-org/resumeforge.git"
+  },
+  "devDependencies": {},
+  "dependencies": {}
+} 

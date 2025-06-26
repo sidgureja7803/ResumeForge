@@ -1,5 +1,5 @@
 import React from 'react';
-import { ATSScore } from '../types';
+import type { ATSScore } from '../types';
 
 interface ATSScorePanelProps {
   atsScore: ATSScore;

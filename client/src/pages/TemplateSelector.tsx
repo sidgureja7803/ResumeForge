@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ResumeTemplate } from '../types';
+import type { ResumeTemplate } from '../types';
 
 // Mock template data
 const mockTemplates: ResumeTemplate[] = [

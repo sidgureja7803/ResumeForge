@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import ResumeEditor from '../components/ResumeEditor';
 import JobDescriptionPanel from '../components/JobDescriptionPanel';
 import ATSScorePanel from '../components/ATSScorePanel';
-import { ResumeData, JobDescription, ATSScore } from '../types';
+import type { ResumeData, JobDescription, ATSScore } from '../types';
 
 // Mock initial resume data
 const initialResumeData: ResumeData = {
