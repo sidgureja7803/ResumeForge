@@ -1,0 +1,37 @@
+{
+  "name": "resumeforge-pdf-lambda",
+  "version": "1.0.0",
+  "description": "AWS Lambda function for generating PDF resumes from HTML and uploading to S3",
+  "main": "generatePdf.js",
+  "scripts": {
+    "test": "node test.js",
+    "test-local": "NODE_ENV=development node test.js",
+    "package": "zip -r pdf-lambda.zip . -x test.js package-lock.json node_modules/.bin/* '*.zip'",
+    "deploy": "aws lambda update-function-code --function-name resumeforge-pdf-generator --zip-file fileb://pdf-lambda.zip",
+    "install-deps": "npm install --production"
+  },
+  "keywords": [
+    "aws-lambda",
+    "pdf-generation",
+    "puppeteer",
+    "s3-upload",
+    "resume",
+    "hackathon"
+  ],
+  "author": "ResumeForge Team",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "puppeteer-core": "^21.6.1",
+    "@sparticuz/chromium": "^119.0.2",
+    "aws-sdk": "^2.1691.0",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/your-org/resumeforge.git"
+  }
+} 
