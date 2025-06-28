@@ -1,9 +1,9 @@
 /**
- * AWS Lambda Function: ATS Score Calculator
- * Handles resume-job description matching and scoring
+ * AWS Lambda Function: ATS Score Calculator - Phase 2
+ * Standalone resume analysis for ATS compatibility scoring
  */
 
-const { calculateATSScore } = require('./utils/scoreEngine');
+const { calculateATSScore } = require('./utils/atsEngine');
 
 /**
  * Main Lambda handler function
@@ -21,7 +21,7 @@ exports.handler = async (event, context) => {
   };
 
   try {
-    console.log('ATS Score Lambda invoked:', {
+    console.log('ATS Score Lambda invoked (Phase 2):', {
       httpMethod: event.httpMethod,
       requestId: context.awsRequestId
     });
@@ -65,8 +65,8 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // Validate required fields
-    const { resumeText, jobDescription } = requestBody;
+    // Validate required field
+    const { resumeText } = requestBody;
     
     if (!resumeText || typeof resumeText !== 'string') {
       return {
@@ -75,75 +75,74 @@ exports.handler = async (event, context) => {
         body: JSON.stringify({
           error: 'Bad Request',
           message: 'Missing or invalid resumeText field',
-          required: 'resumeText must be a non-empty string'
-        })
-      };
-    }
-
-    if (!jobDescription || typeof jobDescription !== 'string') {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({
-          error: 'Bad Request',
-          message: 'Missing or invalid jobDescription field',
-          required: 'jobDescription must be a non-empty string'
+          required: 'resumeText must be a non-empty string',
+          example: {
+            resumeText: "John Doe\\nSoftware Engineer\\nemail@example.com\\n..."
+          }
         })
       };
     }
 
     // Validate text length (prevent abuse)
     const MAX_TEXT_LENGTH = 50000; // 50KB limit
-    if (resumeText.length > MAX_TEXT_LENGTH || jobDescription.length > MAX_TEXT_LENGTH) {
+    if (resumeText.length > MAX_TEXT_LENGTH) {
       return {
         statusCode: 400,
         headers,
         body: JSON.stringify({
           error: 'Bad Request',
-          message: 'Text content too large',
+          message: 'Resume text content too large',
           maxLength: MAX_TEXT_LENGTH,
-          currentLengths: {
-            resumeText: resumeText.length,
-            jobDescription: jobDescription.length
-          }
+          currentLength: resumeText.length
+        })
+      };
+    }
+
+    // Validate minimum content
+    if (resumeText.trim().length < 50) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({
+          error: 'Bad Request',
+          message: 'Resume text too short',
+          minLength: 50,
+          currentLength: resumeText.trim().length
         })
       };
     }
 
     // Calculate ATS score
-    console.log('Calculating ATS score...', {
+    console.log('Calculating ATS score for resume...', {
       resumeLength: resumeText.length,
-      jobDescriptionLength: jobDescription.length
+      wordCount: resumeText.split(/\s+/).length
     });
 
-    const scoreResult = calculateATSScore(resumeText, jobDescription);
+    const scoreResult = calculateATSScore(resumeText);
 
-    // Add metadata to response
+    // Structure response according to Phase 2 requirements
     const response = {
-      success: true,
-      data: {
-        score: scoreResult.score,
-        matchedKeywords: scoreResult.matchedKeywords,
-        missingKeywords: scoreResult.missingKeywords,
-        analysis: {
-          totalJdKeywords: scoreResult.totalJdKeywords,
-          totalResumeKeywords: scoreResult.totalResumeKeywords,
-          matchPercentage: scoreResult.score,
-          keywordCoverage: `${scoreResult.matchedKeywords.length}/${scoreResult.totalJdKeywords}`
-        }
-      },
+      score: scoreResult.score,
+      feedback: scoreResult.feedback,
       metadata: {
         timestamp: new Date().toISOString(),
         requestId: context.awsRequestId,
-        processingTimeMs: context.getRemainingTimeInMillis ? 
-          (context.getRemainingTimeInMillis() - context.getRemainingTimeInMillis()) : null
+        analysis: {
+          wordCount: scoreResult.breakdown.content.wordCount,
+          sectionsFound: Object.keys(scoreResult.breakdown.sections).filter(
+            key => scoreResult.breakdown.sections[key].found
+          ).length,
+          totalSections: Object.keys(scoreResult.breakdown.sections).length,
+          rawScore: scoreResult.breakdown.rawScore,
+          maxPossible: scoreResult.breakdown.maxPossible
+        }
       }
     };
 
     console.log('ATS score calculated successfully:', {
       score: scoreResult.score,
-      matchedCount: scoreResult.matchedKeywords.length,
-      missingCount: scoreResult.missingKeywords.length
+      feedbackCount: scoreResult.feedback.length,
+      sectionsAnalyzed: Object.keys(scoreResult.breakdown.sections).length
     });
 
     return {
@@ -159,14 +158,21 @@ exports.handler = async (event, context) => {
       requestId: context.awsRequestId
     });
 
-    // Return appropriate error response
-    const statusCode = error.message.includes('calculate ATS score') ? 500 : 400;
+    // Determine appropriate status code
+    let statusCode = 500;
+    let errorMessage = 'Internal Server Error';
+    
+    if (error.message.includes('Invalid resume text') || 
+        error.message.includes('ATS score calculation failed')) {
+      statusCode = 400;
+      errorMessage = 'Bad Request';
+    }
     
     return {
       statusCode,
       headers,
       body: JSON.stringify({
-        error: 'Internal Server Error',
+        error: errorMessage,
         message: 'Failed to process ATS score request',
         details: process.env.NODE_ENV === 'development' ? error.message : 'An unexpected error occurred',
         requestId: context.awsRequestId,
@@ -179,13 +185,12 @@ exports.handler = async (event, context) => {
 /**
  * Local testing helper function
  * @param {string} resumeText - Resume content
- * @param {string} jobDescription - Job description content
  * @returns {Object} - Mock Lambda response
  */
-async function testLocally(resumeText, jobDescription) {
+async function testLocally(resumeText) {
   const mockEvent = {
     httpMethod: 'POST',
-    body: JSON.stringify({ resumeText, jobDescription })
+    body: JSON.stringify({ resumeText })
   };
   
   const mockContext = {

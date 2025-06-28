@@ -1,0 +1,150 @@
+service: resumeforge-api
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  stage: ${opt:stage, 'dev'}
+  region: ${opt:region, 'us-east-1'}
+  memorySize: 512
+  timeout: 30
+  environment:
+    NODE_ENV: ${self:provider.stage}
+    AWS_REGION: ${self:provider.region}
+    S3_BUCKET_NAME: resumeforge-pdfs-${self:provider.stage}
+  
+  # IAM permissions for Lambda functions
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - s3:PutObject
+        - s3:PutObjectAcl
+        - s3:GetObject
+      Resource: 
+        - "arn:aws:s3:::resumeforge-pdfs-${self:provider.stage}/*"
+    - Effect: Allow
+      Action:
+        - logs:CreateLogGroup
+        - logs:CreateLogStream
+        - logs:PutLogEvents
+      Resource: "*"
+
+  # CORS configuration
+  httpApi:
+    cors:
+      allowedOrigins:
+        - "*"
+      allowedHeaders:
+        - Content-Type
+        - Authorization
+        - X-Amz-Date
+        - X-Api-Key
+        - X-Amz-Security-Token
+      allowedMethods:
+        - GET
+        - POST
+        - OPTIONS
+      allowCredentials: false
+
+functions:
+  # ATS Score Lambda Function
+  atsScore:
+    handler: lambda/atsScore/atsScore.handler
+    name: ${self:service}-ats-score-${self:provider.stage}
+    description: "ATS scoring for resume-job description matching"
+    memorySize: 256
+    timeout: 30
+    package:
+      patterns:
+        - lambda/atsScore/**
+        - '!lambda/generatePdf/**'
+        - '!lambda/**/test.js'
+        - '!lambda/**/README.md'
+    events:
+      - httpApi:
+          path: /api/ats-score
+          method: post
+          cors: true
+      - httpApi:
+          path: /api/ats-score
+          method: options
+          cors: true
+
+  # PDF Generation Lambda Function  
+  generatePdf:
+    handler: lambda/generatePdf/generatePdf.handler
+    name: ${self:service}-pdf-generator-${self:provider.stage}
+    description: "HTML to PDF conversion with S3 upload"
+    memorySize: 1024
+    timeout: 60
+    package:
+      patterns:
+        - lambda/generatePdf/**
+        - '!lambda/atsScore/**'
+        - '!lambda/**/test.js'
+        - '!lambda/**/README.md'
+    environment:
+      S3_BUCKET_NAME: resumeforge-pdfs-${self:provider.stage}
+    events:
+      - httpApi:
+          path: /api/generate-pdf
+          method: post
+          cors: true
+      - httpApi:
+          path: /api/generate-pdf
+          method: options
+          cors: true
+
+# CloudFormation resources
+resources:
+  Resources:
+    # S3 Bucket for PDF storage
+    ResumeForgeS3Bucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: resumeforge-pdfs-${self:provider.stage}
+        PublicReadPolicy: 
+          Version: '2012-10-17'
+          Statement:
+            - Sid: PublicReadGetObject
+              Effect: Allow
+              Principal: '*'
+              Action: 's3:GetObject'
+              Resource: 'arn:aws:s3:::resumeforge-pdfs-${self:provider.stage}/*'
+        CorsConfiguration:
+          CorsRules:
+            - AllowedHeaders: ['*']
+              AllowedMethods: [GET, PUT, POST]
+              AllowedOrigins: ['*']
+              MaxAge: 3000
+
+# Plugins
+plugins:
+  - serverless-offline
+
+# Custom configuration
+custom:
+  serverless-offline:
+    httpPort: 3001
+    host: 0.0.0.0
+
+# Stack outputs
+outputs:
+  ApiGatewayUrl:
+    Description: "API Gateway endpoint URL"
+    Value:
+      Fn::Join:
+        - ""
+        - - "https://"
+          - Ref: HttpApi
+          - ".execute-api."
+          - ${self:provider.region}
+          - ".amazonaws.com"
+    Export:
+      Name: ${self:service}-${self:provider.stage}-api-url
+
+  S3BucketName:
+    Description: "S3 bucket name for PDF storage"
+    Value: resumeforge-pdfs-${self:provider.stage}
+    Export:
+      Name: ${self:service}-${self:provider.stage}-s3-bucket 
